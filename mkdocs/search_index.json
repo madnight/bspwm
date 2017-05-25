@@ -1,0 +1,174 @@
+{
+    "docs": [
+        {
+            "location": "/",
+            "text": "Description\n\n\nbspwm\n is a tiling window manager that represents windows as the leaves of a full binary tree.\n\n\nIt only responds to X events, and the messages it receives on a dedicated socket.\n\n\nbspc\n is a program that writes messages on \nbspwm\n's socket.\n\n\nbspwm\n doesn't handle any keyboard or pointer inputs: a third party program (e.g. \nsxhkd\n) is needed in order to translate keyboard and pointer events to \nbspc\n invocations.\n\n\nThe outlined architecture is the following:\n\n\n        PROCESS          SOCKET\nsxhkd  -------->  bspc  <------>  bspwm\n\n\n\n\nConfiguration\n\n\nThe default configuration file is \n$XDG_CONFIG_HOME/bspwm/bspwmrc\n: this is simply a shell script that calls \nbspc\n.\n\n\nKeyboard and pointer bindings are defined with \nsxhkd\n.\n\n\nExample configuration files can be found in the \nexamples\n directory.\n\n\nMonitors, desktops and windows\n\n\nbspwm\n holds a list of monitors.\n\n\nA monitor is just a rectangle that contains desktops.\n\n\nA desktop is just a pointer to a tree.\n\n\nMonitors only show the tree of one desktop at a time (their focused desktop).\n\n\nThe tree is a partition of a monitor's rectangle into smaller rectangular regions.\n\n\nEach node in a tree either has zero or two children.\n\n\nEach internal node is responsible for splitting a rectangle in half.\n\n\nA split is defined by two parameters: the type (horizontal or vertical) and the ratio (a real number \nr\n such that \n0 < r < 1\n).\n\n\nEach leaf node holds exactly one window.\n\n\nInsertion Modes\n\n\nPrelude\n\n\nWhen \nbspwm\n receives a new window, it inserts it into a window tree at the specified insertion point (a leaf) using the insertion mode specified for that insertion point.\n\n\nThe insertion mode tells \nbspwm\n how it should alter the tree in order to insert new windows on a given insertion point.\n\n\nBy default the insertion point is the focused window and its default insertion mode is \nautomatic\n.\n\n\nAutomatic Mode\n\n\nThe \nautomatic\n mode, as opposed to the \nmanual\n mode, doesn't require any user choice: the new window will \ntake the space\n of the insertion point.\n\n\nFor example, let's consider the following scenario:\n\n\n             a                          a                          a\n            / \\                        / \\                        / \\\n           1   b         --->         1   c         --->         1   d\n              / \\                        / \\                        / \\\n             2   3                      4   b                      5   c\n             ^                          ^  / \\                     ^  / \\\n                                          3   2                      b   4\n                                                                    / \\ \n                                                                   3   2\n\n +-----------------------+  +-----------------------+  +-----------------------+\n |           |           |  |           |           |  |           |           |\n |           |     2     |  |           |     4     |  |           |     5     |\n |           |     ^     |  |           |     ^     |  |           |     ^     |\n |     1     |-----------|  |     1     |-----------|  |     1     |-----------|\n |           |           |  |           |     |     |  |           |  3  |     |\n |           |     3     |  |           |  3  |  2  |  |           |-----|  4  |\n |           |           |  |           |     |     |  |           |  2  |     |\n +-----------------------+  +-----------------------+  +-----------------------+\n\n              X                         Y                          Z \n\n\n\n\nIn state \nX\n, the insertion point, \n2\n is in automatic mode.\n\n\nWhen we add a new window, \n4\n, the whole tree rooted at \nb\n is reattached, as the second child of a new internal node, \nc\n.\n\n\nThe splitting parameters of \nb\n (type: \nhorizontal\n, ratio: \n\u00bd\n) are copied to \nc\n and \nb\n is rotated by 90\u00b0 clockwise.\n\n\nThe tiling rectangle of \n4\n in state \nY\n is equal to the tiling rectangle of \n2\n in state \nX\n.\n\n\nThen the insertion of \n5\n, with \n4\n as insertion point, leads to \nZ\n.\n\n\nThe automatic mode generates window spirals that rotate clockwise (resp. anti-clockwise) if the insertion point is the first (resp. second) child of its parent.\n\n\nManual Mode\n\n\nThe user can specify a region in the insertion point where the next new window should appear by sending a \nnode -p|--presel-dir DIR\n message to \nbspwm\n.\n\n\nThe \nDIR\n argument allows to specify how the insertion point should be split (horizontally or vertically) and if the new window should be the first or the second child of the new internal node (the insertion point will become its \nbrother\n).\n\n\nAfter doing so the insertion point goes into \nmanual\n mode.\n\n\nFor example, let's consider the following scenario:\n\n\n            a                          a                          a\n           / \\                        / \\                        / \\\n          1   b         --->         c   b         --->         c   b\n          ^  / \\                    / \\ / \\                    / \\ / \\\n            2   3                  4  1 2  3                  d  1 2  3\n                                   ^                         / \\\n                                                            5   4\n                                                            ^\n\n+-----------------------+  +-----------------------+  +-----------------------+\n|           |           |  |           |           |  |     |     |           |\n|           |     2     |  |     4     |     2     |  |  5  |  4  |     2     |\n|           |           |  |     ^     |           |  |  ^  |     |           |\n|     1     |-----------|  |-----------|-----------|  |-----------|-----------|\n|     ^     |           |  |           |           |  |           |           |\n|           |     3     |  |     1     |     3     |  |     1     |     3     |\n|           |           |  |           |           |  |           |           |\n+-----------------------+  +-----------------------+  +-----------------------+\n\n            X                          Y                          Z \n\n\n\n\nIn state \nX\n, the insertion point is \n1\n.\n\n\nWe send the following message to \nbspwm\n: \nnode -p north\n.\n\n\nThen add a new window: \n4\n, this leads to state \nY\n: the new internal node, \nc\n becomes \na\n's first child.\n\n\nFinally we send another message: \nnode -p west\n and add window \n5\n.\n\n\nThe ratio of the preselection (that ends up being the ratio of the split of the new internal node) can be changed with the \nnode -o|--presel-ratio\n message.\n\n\nSupported protocols and standards\n\n\n\n\nThe RandR and Xinerama protocols.\n\n\nA subset of the EWMH and ICCCM standards.",
+            "title": "Home"
+        },
+        {
+            "location": "/#description",
+            "text": "bspwm  is a tiling window manager that represents windows as the leaves of a full binary tree.  It only responds to X events, and the messages it receives on a dedicated socket.  bspc  is a program that writes messages on  bspwm 's socket.  bspwm  doesn't handle any keyboard or pointer inputs: a third party program (e.g.  sxhkd ) is needed in order to translate keyboard and pointer events to  bspc  invocations.  The outlined architecture is the following:          PROCESS          SOCKET\nsxhkd  -------->  bspc  <------>  bspwm",
+            "title": "Description"
+        },
+        {
+            "location": "/#configuration",
+            "text": "The default configuration file is  $XDG_CONFIG_HOME/bspwm/bspwmrc : this is simply a shell script that calls  bspc .  Keyboard and pointer bindings are defined with  sxhkd .  Example configuration files can be found in the  examples  directory.",
+            "title": "Configuration"
+        },
+        {
+            "location": "/#monitors-desktops-and-windows",
+            "text": "bspwm  holds a list of monitors.  A monitor is just a rectangle that contains desktops.  A desktop is just a pointer to a tree.  Monitors only show the tree of one desktop at a time (their focused desktop).  The tree is a partition of a monitor's rectangle into smaller rectangular regions.  Each node in a tree either has zero or two children.  Each internal node is responsible for splitting a rectangle in half.  A split is defined by two parameters: the type (horizontal or vertical) and the ratio (a real number  r  such that  0 < r < 1 ).  Each leaf node holds exactly one window.",
+            "title": "Monitors, desktops and windows"
+        },
+        {
+            "location": "/#insertion-modes",
+            "text": "",
+            "title": "Insertion Modes"
+        },
+        {
+            "location": "/#prelude",
+            "text": "When  bspwm  receives a new window, it inserts it into a window tree at the specified insertion point (a leaf) using the insertion mode specified for that insertion point.  The insertion mode tells  bspwm  how it should alter the tree in order to insert new windows on a given insertion point.  By default the insertion point is the focused window and its default insertion mode is  automatic .",
+            "title": "Prelude"
+        },
+        {
+            "location": "/#automatic-mode",
+            "text": "The  automatic  mode, as opposed to the  manual  mode, doesn't require any user choice: the new window will  take the space  of the insertion point.  For example, let's consider the following scenario:               a                          a                          a\n            / \\                        / \\                        / \\\n           1   b         --->         1   c         --->         1   d\n              / \\                        / \\                        / \\\n             2   3                      4   b                      5   c\n             ^                          ^  / \\                     ^  / \\\n                                          3   2                      b   4\n                                                                    / \\ \n                                                                   3   2\n\n +-----------------------+  +-----------------------+  +-----------------------+\n |           |           |  |           |           |  |           |           |\n |           |     2     |  |           |     4     |  |           |     5     |\n |           |     ^     |  |           |     ^     |  |           |     ^     |\n |     1     |-----------|  |     1     |-----------|  |     1     |-----------|\n |           |           |  |           |     |     |  |           |  3  |     |\n |           |     3     |  |           |  3  |  2  |  |           |-----|  4  |\n |           |           |  |           |     |     |  |           |  2  |     |\n +-----------------------+  +-----------------------+  +-----------------------+\n\n              X                         Y                          Z   In state  X , the insertion point,  2  is in automatic mode.  When we add a new window,  4 , the whole tree rooted at  b  is reattached, as the second child of a new internal node,  c .  The splitting parameters of  b  (type:  horizontal , ratio:  \u00bd ) are copied to  c  and  b  is rotated by 90\u00b0 clockwise.  The tiling rectangle of  4  in state  Y  is equal to the tiling rectangle of  2  in state  X .  Then the insertion of  5 , with  4  as insertion point, leads to  Z .  The automatic mode generates window spirals that rotate clockwise (resp. anti-clockwise) if the insertion point is the first (resp. second) child of its parent.",
+            "title": "Automatic Mode"
+        },
+        {
+            "location": "/#manual-mode",
+            "text": "The user can specify a region in the insertion point where the next new window should appear by sending a  node -p|--presel-dir DIR  message to  bspwm .  The  DIR  argument allows to specify how the insertion point should be split (horizontally or vertically) and if the new window should be the first or the second child of the new internal node (the insertion point will become its  brother ).  After doing so the insertion point goes into  manual  mode.  For example, let's consider the following scenario:              a                          a                          a\n           / \\                        / \\                        / \\\n          1   b         --->         c   b         --->         c   b\n          ^  / \\                    / \\ / \\                    / \\ / \\\n            2   3                  4  1 2  3                  d  1 2  3\n                                   ^                         / \\\n                                                            5   4\n                                                            ^\n\n+-----------------------+  +-----------------------+  +-----------------------+\n|           |           |  |           |           |  |     |     |           |\n|           |     2     |  |     4     |     2     |  |  5  |  4  |     2     |\n|           |           |  |     ^     |           |  |  ^  |     |           |\n|     1     |-----------|  |-----------|-----------|  |-----------|-----------|\n|     ^     |           |  |           |           |  |           |           |\n|           |     3     |  |     1     |     3     |  |     1     |     3     |\n|           |           |  |           |           |  |           |           |\n+-----------------------+  +-----------------------+  +-----------------------+\n\n            X                          Y                          Z   In state  X , the insertion point is  1 .  We send the following message to  bspwm :  node -p north .  Then add a new window:  4 , this leads to state  Y : the new internal node,  c  becomes  a 's first child.  Finally we send another message:  node -p west  and add window  5 .  The ratio of the preselection (that ends up being the ratio of the split of the new internal node) can be changed with the  node -o|--presel-ratio  message.",
+            "title": "Manual Mode"
+        },
+        {
+            "location": "/#supported-protocols-and-standards",
+            "text": "The RandR and Xinerama protocols.  A subset of the EWMH and ICCCM standards.",
+            "title": "Supported protocols and standards"
+        },
+        {
+            "location": "/INSTALL/",
+            "text": "Dependencies\n\n\n\n\nlibxcb\n\n\nxcb-util\n\n\nxcb-util-wm\n\n\n\n\nInstallation\n\n\n$ make\n# make install\n\n\n\nRemoval\n\n\n# make uninstall\n\n\n\nPackages\n\n\n\n\n\n\nArch Linux\n\n\n\n\nbspwm-git\n\n\nbspwm (x86_64)\n\n\nbspwm (i686)\n\n\n\n\n\n\n\n\nDebian\n\n\n\n\npackages\n\n\nguide\n\n\n\n\n\n\n\n\nGentoo Linux\n\n\n\n\nbspwm\n\n\nbspwm-git\n\n\n\n\n\n\n\n\nFreeBSD\n\n\n\n\n\n\nVoid Linux\n\n\n\n\n\n\nBunsenLabs\n\n\n\n\n\n\nManjaro Linux\n\n\n\n\n\n\nChakra\n\n\n\n\n\n\nExherbo",
+            "title": "Install"
+        },
+        {
+            "location": "/INSTALL/#dependencies",
+            "text": "libxcb  xcb-util  xcb-util-wm",
+            "title": "Dependencies"
+        },
+        {
+            "location": "/INSTALL/#installation",
+            "text": "$ make\n# make install",
+            "title": "Installation"
+        },
+        {
+            "location": "/INSTALL/#removal",
+            "text": "# make uninstall",
+            "title": "Removal"
+        },
+        {
+            "location": "/INSTALL/#packages",
+            "text": "Arch Linux   bspwm-git  bspwm (x86_64)  bspwm (i686)     Debian   packages  guide     Gentoo Linux   bspwm  bspwm-git     FreeBSD    Void Linux    BunsenLabs    Manjaro Linux    Chakra    Exherbo",
+            "title": "Packages"
+        },
+        {
+            "location": "/CHANGELOG/",
+            "text": "From 0.9.1 to 0.9.2\n\n\nChanges\n\n\n\n\nMonitors, desktops and nodes have unique IDs, \nbspc query -{N,D,M}\n returns IDs and events reference objects by ID instead of name.\n\n\nbspc\n fails verbosely and only returns a single non-zero exit code.\n\n\nThe \nDIR\n descriptor is based on \nright-window\n.\n\n\nThe \nCYCLE_DIR\n descriptor isn't limited to the current desktop/monitor anymore. (You can emulate the previous behavior by appending a \n.local\n modifier to the selector.)\n\n\nbspc query -{N,D,M}\n accepts an optional reference argument used by certain descriptors/modifiers.\n\n\nMonitors are ordered visually by default.\n\n\nThe following settings: \nborder_width\n, \nwindow_gap\n and \n*_padding\n behave as expected.\n\n\nExternal rules also receives the monitor, desktop and node selectors computed from the built-in rules stage as subsequent arguments.\n\n\nThe \nfocus_follows_pointer\n setting is implemented via enter notify events.\n\n\n\n\nAdditions\n\n\n\n\nNodes can be hidden/shown via the new \nhidden\n flag.\n\n\nNode receptacles can be inserted with \nnode -i\n. An example is given in \ngit show e8aa679\n.\n\n\nNon-tiled nodes can be moved/resized via \nnode -{v,z}\n.\n\n\nThe reference of a selector can be set via the \n{NODE,DESKTOP,MONITOR}_SEL#\n prefix, example: \nbspc node 0x0080000c#south -c\n will close the node at the south of \n0x0080000c\n.\n\n\nNode descriptors: \n<node_id>\n, \npointed\n.\n\n\nNode modifiers: \nhidden\n, \ndescendant_of\n, \nancestor_of\n, \nwindow\n, \nactive\n. Example: \nbspc query -N 0x00400006 -n .descendant_of\n returns the descendants of \n0x00400006\n.\n\n\nDesktop descriptor: \n<desktop_id>\n.\n\n\nMonitor descriptor: \n<monitor_id>\n.\n\n\nSettings: \npointer_motion_interval\n, \npointer_modifier\n, \npointer_action{1,2,3}\n, \nclick_to_focus\n, \nhonor_size_hints\n.\n\n\nEvent: \npointer_action\n.\n\n\nICCCM/EWMH atoms: \nWM_STATE\n, \n_NET_WM_STRUT_PARTIAL\n.\n\n\nbspc\n shell completions for \nfish\n.\n\n\n\n\nRemovals\n\n\n\n\nThe \npointer\n domain. Pointer actions are handled internally. You need to remove any binding that uses this domain from your \nsxhkdrc\n.\n\n\nSettings: \nhistory_aware_focus\n, \nfocus_by_distance\n. Both settings are merged into the new \nDIR\n implementation.\n\n\nmonitor -r|--remove-desktops\n: use \ndesktop -r|--remove\n instead.\n\n\nwm -r|--remove-monitor\n: use \nmonitor -r|--remove\n instead.\n\n\n\n\nFrom 0.9 to 0.9.1\n\n\nOverview\n\n\nAll the commands that acted on leaves can now be applied on internal nodes (including focusing and preselection). Consequently, the \nwindow\n domain is now a \nnode\n domain. Please note that some commands are applied to the leaves of the tree rooted at the selected node and not to the node itself.\n\n\nChanges\n\n\n\n\nAll the commands that started with \nwindow\n now start with \nnode\n.\n\n\n-W|--windows\n, \n-w|--window\n, \n-w|--to-window\n are now \n-N|--nodes\n, \n-n|--node\n, \n-n|--to-node\n.\n\n\nWe now use cardinal directions: \nwest,south,north,east\n instead of \nleft,down,up,right\n (in fact the latter is just plain wrong: the \nup,down\n axis is perpendicular to the screen).\n\n\nThe \nWINDOW_SEL\n becomes \nNODE_SEL\n and now contains a \nPATH\n specifier to select internal nodes.\n\n\nThe \ncontrol\n domain is renamed to \nwm\n.\n\n\nrestore -{T,H,S}\n was unified into \nwm -l|--load-state\n and \nquery -{T,H,S}\n into \nwm -d|--dump-state\n.\n\n\ncontrol --subscribe\n becomes \nsubscribe\n.\n\n\nnode --toggle\n (previously \nwindow --toggle\n) is split into \nnode --state\n and \nnode --flag\n.\n\n\nThe preselection direction (resp. ratio) is now set with \nnode --presel-dir|-p\n (resp. \nnode --presel-ratio|-o\n).\n\n\nThe following desktop commands: \n--rotate\n, \n--flip\n, \n--balance\n, \n--equalize\n, \n--circulate\n are now node commands.\n\n\nquery -T ...\n outputs JSON.\n\n\nquery -{M,D,N}\n: the descriptor part of the selector is now optional (e.g.: \nquery -D -d .urgent\n).\n\n\nMany new modifiers were added, some were renamed. The opposite of a modifier is now expressed with the \n!\n prefix (e.g.: \nlike\n becomes \nsame_class\n, \nunlike\n becomes \n!same_class\n, etc.).\n\n\nModifiers can now be applied to any descriptor (e.g.: \nquery -N -n 0x80000d.floating\n).\n\n\nwm -l\n (previously \nrestore -T\n) will now destroy the existing tree and restore from scratch instead of relying on existing monitors and desktops.\n\n\nsubscribe\n (previously \ncontrol --subscribe\n) now accepts arguments and can receive numerous events from different domains (see the \nEVENTS\n section of the manual).\n\n\nrule -a\n: it is now possible to specify the class name \nand\n instance name (e.g.: \nrule -a Foo:bar\n).\n\n\npresel_border_color\n is now \npresel_feedback_color\n.\n\n\nbspwm -v\n yields an accurate version.\n\n\nThe monitors are sorted, by default, according to the natural visual hierarchy.\n\n\n\n\nAdditions\n\n\nSettings\n\n\n\n\nsingle_monocle\n.\n\n\npaddingless_monocle\n.\n\n\n\n\nCommands\n\n\n\n\n{node,desktop} --activate\n.\n\n\nnode --layer\n.\n\n\ndesktop --bubble\n.\n\n\nwm {--add-monitor,--remove-monitor}\n.\n\n\nmonitor --rectangle\n.\n\n\n\n\nRemovals\n\n\nCommands\n\n\n\n\ndesktop --toggle\n\n\ndesktop --cancel-presel\n\n\ncontrol --toggle-visibility\n.\n\n\n\n\nSettings\n\n\n\n\napply_floating_atom\n.\n\n\nauto_alternate\n.\n\n\nauto_cancel\n.\n\n\nfocused_locked_border_color\n\n\nactive_locked_border_color\n\n\nnormal_locked_border_color\n\n\nfocused_sticky_border_color\n\n\nactive_sticky_border_color\n\n\nnormal_sticky_border_color\n\n\nfocused_private_border_color\n\n\nactive_private_border_color\n\n\nnormal_private_border_color\n\n\nurgent_border_color\n\n\n\n\nMessage Translation Guide\n\n\n\n\n\n\n\n\n0.9\n\n\n0.9.1\n\n\n\n\n\n\n\n\n\n\n{left,down,up,right}\n\n\n{west,south,north,east}\n\n\n\n\n\n\nwindow -r\n\n\nnode -o\n (\nnode -r\n also exists)\n\n\n\n\n\n\nwindow -e DIR RATIO\n\n\nnode @DIR -r RATIO\n\n\n\n\n\n\nwindow -R DIR DEG\n\n\nnode @DIR -R DEG\n\n\n\n\n\n\nwindow -w\n\n\nnode -n\n\n\n\n\n\n\ndesktop DESKTOP_SEL -R DEG\n\n\nnode @DESKTOP_SEL:/ -R DEG\n\n\n\n\n\n\ndesktop DESKTOP_SEL -E\n\n\nnode @DESKTOP_SEL:/ -E\n\n\n\n\n\n\ndesktop DESKTOP_SEL -B\n\n\nnode @DESKTOP_SEL:/ -B\n\n\n\n\n\n\ndesktop DESKTOP_SEL -C forward|backward\n\n\nnode @DESKTOP_SEL:/ -C forward|backward\n\n\n\n\n\n\ndesktop DESKTOP_SEL --cancel-presel\n\n\nbspc query -N -d DESKTOP_SEL | xargs -I id -n 1 bspc node id -p cancel\n\n\n\n\n\n\nwindow -t floating\n\n\nnode -t ~floating\n\n\n\n\n\n\nquery -W -w\n\n\nquery -N -n .leaf\n\n\n\n\n\n\nquery -{T,H,S}\n\n\nwm -d\n\n\n\n\n\n\nrestore -{T,H,S}\n\n\nwm -l",
+            "title": "Changelog"
+        },
+        {
+            "location": "/CHANGELOG/#from-091-to-092",
+            "text": "",
+            "title": "From 0.9.1 to 0.9.2"
+        },
+        {
+            "location": "/CHANGELOG/#changes",
+            "text": "Monitors, desktops and nodes have unique IDs,  bspc query -{N,D,M}  returns IDs and events reference objects by ID instead of name.  bspc  fails verbosely and only returns a single non-zero exit code.  The  DIR  descriptor is based on  right-window .  The  CYCLE_DIR  descriptor isn't limited to the current desktop/monitor anymore. (You can emulate the previous behavior by appending a  .local  modifier to the selector.)  bspc query -{N,D,M}  accepts an optional reference argument used by certain descriptors/modifiers.  Monitors are ordered visually by default.  The following settings:  border_width ,  window_gap  and  *_padding  behave as expected.  External rules also receives the monitor, desktop and node selectors computed from the built-in rules stage as subsequent arguments.  The  focus_follows_pointer  setting is implemented via enter notify events.",
+            "title": "Changes"
+        },
+        {
+            "location": "/CHANGELOG/#additions",
+            "text": "Nodes can be hidden/shown via the new  hidden  flag.  Node receptacles can be inserted with  node -i . An example is given in  git show e8aa679 .  Non-tiled nodes can be moved/resized via  node -{v,z} .  The reference of a selector can be set via the  {NODE,DESKTOP,MONITOR}_SEL#  prefix, example:  bspc node 0x0080000c#south -c  will close the node at the south of  0x0080000c .  Node descriptors:  <node_id> ,  pointed .  Node modifiers:  hidden ,  descendant_of ,  ancestor_of ,  window ,  active . Example:  bspc query -N 0x00400006 -n .descendant_of  returns the descendants of  0x00400006 .  Desktop descriptor:  <desktop_id> .  Monitor descriptor:  <monitor_id> .  Settings:  pointer_motion_interval ,  pointer_modifier ,  pointer_action{1,2,3} ,  click_to_focus ,  honor_size_hints .  Event:  pointer_action .  ICCCM/EWMH atoms:  WM_STATE ,  _NET_WM_STRUT_PARTIAL .  bspc  shell completions for  fish .",
+            "title": "Additions"
+        },
+        {
+            "location": "/CHANGELOG/#removals",
+            "text": "The  pointer  domain. Pointer actions are handled internally. You need to remove any binding that uses this domain from your  sxhkdrc .  Settings:  history_aware_focus ,  focus_by_distance . Both settings are merged into the new  DIR  implementation.  monitor -r|--remove-desktops : use  desktop -r|--remove  instead.  wm -r|--remove-monitor : use  monitor -r|--remove  instead.",
+            "title": "Removals"
+        },
+        {
+            "location": "/CHANGELOG/#from-09-to-091",
+            "text": "",
+            "title": "From 0.9 to 0.9.1"
+        },
+        {
+            "location": "/CHANGELOG/#overview",
+            "text": "All the commands that acted on leaves can now be applied on internal nodes (including focusing and preselection). Consequently, the  window  domain is now a  node  domain. Please note that some commands are applied to the leaves of the tree rooted at the selected node and not to the node itself.",
+            "title": "Overview"
+        },
+        {
+            "location": "/CHANGELOG/#changes_1",
+            "text": "All the commands that started with  window  now start with  node .  -W|--windows ,  -w|--window ,  -w|--to-window  are now  -N|--nodes ,  -n|--node ,  -n|--to-node .  We now use cardinal directions:  west,south,north,east  instead of  left,down,up,right  (in fact the latter is just plain wrong: the  up,down  axis is perpendicular to the screen).  The  WINDOW_SEL  becomes  NODE_SEL  and now contains a  PATH  specifier to select internal nodes.  The  control  domain is renamed to  wm .  restore -{T,H,S}  was unified into  wm -l|--load-state  and  query -{T,H,S}  into  wm -d|--dump-state .  control --subscribe  becomes  subscribe .  node --toggle  (previously  window --toggle ) is split into  node --state  and  node --flag .  The preselection direction (resp. ratio) is now set with  node --presel-dir|-p  (resp.  node --presel-ratio|-o ).  The following desktop commands:  --rotate ,  --flip ,  --balance ,  --equalize ,  --circulate  are now node commands.  query -T ...  outputs JSON.  query -{M,D,N} : the descriptor part of the selector is now optional (e.g.:  query -D -d .urgent ).  Many new modifiers were added, some were renamed. The opposite of a modifier is now expressed with the  !  prefix (e.g.:  like  becomes  same_class ,  unlike  becomes  !same_class , etc.).  Modifiers can now be applied to any descriptor (e.g.:  query -N -n 0x80000d.floating ).  wm -l  (previously  restore -T ) will now destroy the existing tree and restore from scratch instead of relying on existing monitors and desktops.  subscribe  (previously  control --subscribe ) now accepts arguments and can receive numerous events from different domains (see the  EVENTS  section of the manual).  rule -a : it is now possible to specify the class name  and  instance name (e.g.:  rule -a Foo:bar ).  presel_border_color  is now  presel_feedback_color .  bspwm -v  yields an accurate version.  The monitors are sorted, by default, according to the natural visual hierarchy.",
+            "title": "Changes"
+        },
+        {
+            "location": "/CHANGELOG/#additions_1",
+            "text": "",
+            "title": "Additions"
+        },
+        {
+            "location": "/CHANGELOG/#settings",
+            "text": "single_monocle .  paddingless_monocle .",
+            "title": "Settings"
+        },
+        {
+            "location": "/CHANGELOG/#commands",
+            "text": "{node,desktop} --activate .  node --layer .  desktop --bubble .  wm {--add-monitor,--remove-monitor} .  monitor --rectangle .",
+            "title": "Commands"
+        },
+        {
+            "location": "/CHANGELOG/#removals_1",
+            "text": "",
+            "title": "Removals"
+        },
+        {
+            "location": "/CHANGELOG/#commands_1",
+            "text": "desktop --toggle  desktop --cancel-presel  control --toggle-visibility .",
+            "title": "Commands"
+        },
+        {
+            "location": "/CHANGELOG/#settings_1",
+            "text": "apply_floating_atom .  auto_alternate .  auto_cancel .  focused_locked_border_color  active_locked_border_color  normal_locked_border_color  focused_sticky_border_color  active_sticky_border_color  normal_sticky_border_color  focused_private_border_color  active_private_border_color  normal_private_border_color  urgent_border_color",
+            "title": "Settings"
+        },
+        {
+            "location": "/CHANGELOG/#message-translation-guide",
+            "text": "0.9  0.9.1      {left,down,up,right}  {west,south,north,east}    window -r  node -o  ( node -r  also exists)    window -e DIR RATIO  node @DIR -r RATIO    window -R DIR DEG  node @DIR -R DEG    window -w  node -n    desktop DESKTOP_SEL -R DEG  node @DESKTOP_SEL:/ -R DEG    desktop DESKTOP_SEL -E  node @DESKTOP_SEL:/ -E    desktop DESKTOP_SEL -B  node @DESKTOP_SEL:/ -B    desktop DESKTOP_SEL -C forward|backward  node @DESKTOP_SEL:/ -C forward|backward    desktop DESKTOP_SEL --cancel-presel  bspc query -N -d DESKTOP_SEL | xargs -I id -n 1 bspc node id -p cancel    window -t floating  node -t ~floating    query -W -w  query -N -n .leaf    query -{T,H,S}  wm -d    restore -{T,H,S}  wm -l",
+            "title": "Message Translation Guide"
+        },
+        {
+            "location": "/CONTRIBUTING/",
+            "text": "Issues\n\n\nAlways provide the following information when submitting an issue:\n- Output of \nbspwm -v\n.\n- Content of \nbspwmrc\n.\n- Steps to reproduce the problem.\n\n\nPull Requests\n\n\nRequirements\n\n\nYou must be comfortable with \nC\n, \nXCB\n and \nGit\n.\n\n\nCoding Style\n\n\nI follow the \nLinux Coding Style\n with the following variations:\n- \nIndent with tabs, align with spaces\n.\n- Always use braces when using control structures.",
+            "title": "Contributing"
+        },
+        {
+            "location": "/CONTRIBUTING/#issues",
+            "text": "Always provide the following information when submitting an issue:\n- Output of  bspwm -v .\n- Content of  bspwmrc .\n- Steps to reproduce the problem.",
+            "title": "Issues"
+        },
+        {
+            "location": "/CONTRIBUTING/#pull-requests",
+            "text": "",
+            "title": "Pull Requests"
+        },
+        {
+            "location": "/CONTRIBUTING/#requirements",
+            "text": "You must be comfortable with  C ,  XCB  and  Git .",
+            "title": "Requirements"
+        },
+        {
+            "location": "/CONTRIBUTING/#coding-style",
+            "text": "I follow the  Linux Coding Style  with the following variations:\n-  Indent with tabs, align with spaces .\n- Always use braces when using control structures.",
+            "title": "Coding Style"
+        }
+    ]
+}
