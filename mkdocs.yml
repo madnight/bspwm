@@ -4,5 +4,6 @@ repo_url: https://github.com/baskerville/bspwm
 pages:
     - Home: README.md
     - Install: INSTALL.md
+    - Manpage: MAN.md
     - Changelog: CHANGELOG.md
     - Contributing: CONTRIBUTING.md
